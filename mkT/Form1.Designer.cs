@@ -44,6 +44,7 @@
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
+            this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.SuspendLayout();
@@ -209,25 +210,40 @@
             this.button3.UseVisualStyleBackColor = true;
             this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
+            // saveFileDialog1
+            // 
+            this.saveFileDialog1.Filter = "Torrent File|*.torrent|All Files (*.*)|*.*";
+            this.saveFileDialog1.InitialDirectory = "%USERPROFILE%\\Desktop";
+            // 
             // openFileDialog1
             // 
+            this.openFileDialog1.Filter = "All Files (*.*)|*.*";
+            this.openFileDialog1.InitialDirectory = "%USERPROFILE%\\Desktop";
             this.openFileDialog1.Title = "Add file...";
             // 
             // folderBrowserDialog1
             // 
             this.folderBrowserDialog1.Description = "Add folder...";
             // 
+            // progressBar1
+            // 
+            this.progressBar1.Location = new System.Drawing.Point(12, 329);
+            this.progressBar1.Name = "progressBar1";
+            this.progressBar1.Size = new System.Drawing.Size(228, 23);
+            this.progressBar1.TabIndex = 4;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(370, 359);
+            this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.button3);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
             this.MinimumSize = new System.Drawing.Size(300, 300);
             this.Name = "Form1";
-            this.Text = "Form1";
+            this.Text = "BatchTorrent";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
@@ -255,6 +271,7 @@
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
+        private System.Windows.Forms.ProgressBar progressBar1;
     }
 }
 
