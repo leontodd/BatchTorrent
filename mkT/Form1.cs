@@ -96,15 +96,7 @@ namespace mkT
                         ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
                         button3.Enabled = false;
 
-                        tc.CreateAsync(tFS);
-                        //button3.Enabled = true;
-
-                        //tasks.Add(Task.Run(async() =>
-                        //    {
-                        //        await sS.WaitAsync();
-                        //        await ProcessTorrent(textBox1.Text, saveFileDialog1.FileName);
-                        //        sS.Release();
-                        //    }));
+                        tc.CreateAsync(tFS, new FileStream(saveFileDialog1.FileName, FileMode.Create)).ContinueWith((t) => TorrentCompleted());
                     }
                     else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
                 }
@@ -126,16 +118,6 @@ namespace mkT
                 // show async progress
                 ShowProgressDelegate showProgress = new ShowProgressDelegate(ShowProgress);
                 BeginInvoke(showProgress, new object[] { fileCompletion, overallCompletion, overallSize });
-            }
-        }
-
-        private void TorrentCompletedCallback(IAsyncResult iar)
-        {
-            TorrentCreator tc = (TorrentCreator)iar.AsyncState;
-            using (FileStream stream = File.OpenWrite(saveFileDialog1.FileName))
-            {
-                tc.EndCreate(iar, stream);
-                TorrentCompleted();
             }
         }
 
@@ -163,33 +145,14 @@ namespace mkT
         {
             button4.Enabled = checkBox2.Checked;
         }
-
-        async Task ProcessTorrent(string loadpath, string savepath)
-        {
-            bool a = File.Exists(loadpath);
-            bool b = Directory.Exists(loadpath);
-            if (File.Exists(loadpath) || Directory.Exists(loadpath))
-            {
-                
-
-                //if (saveFileDialog1.ShowDialog() == DialogResult.OK)
-                //{
-                //    ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
-                //    button3.Enabled = false;
-                //    tc.BeginCreate(tFS, TorrentCompletedCallback, tc);
-                //    //BEncodedDictionary t = await Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, tFS, null);
-                //    //button3.Enabled = true;
-                //}
-            }
-            else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
-        }
     }
 
     public static class ExtensionMethods
     {
-        public static Task CreateAsync(this TorrentCreator tc, ITorrentFileSource itfs)
+        public static async Task CreateAsync(this TorrentCreator tc, ITorrentFileSource itfs, FileStream stream)
         {
-            return Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, itfs, null);
+            byte[] buffer = (await Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, itfs, null)).Encode();
+            await stream.WriteAsync(buffer, 0, buffer.Length);
         }
     }
 }
