@@ -42,7 +42,7 @@ namespace mkT
             comboBox1.SelectedIndex = 0;
 
             //REMOVE THIS UPON RELEASE
-            textBox1.Text = @"C:\Users\Leon\Downloads\lmy48b_hammerhead.zip";
+            textBox1.Text = @"C:\Users\Leon\Desktop\TEST";
 
         }
 
@@ -64,42 +64,49 @@ namespace mkT
 
         private void button3_Click(object sender, EventArgs e)
         {
-            SemaphoreSlim sS = new SemaphoreSlim(10);
-            List<Task> tasks = new List<Task>();
+            //SemaphoreSlim sS = new SemaphoreSlim(10);
+            //List<Task> tasks = new List<Task>();
             if (checkBox2.Checked)
             {
-                if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+                if (Directory.Exists(textBox1.Text))
                 {
-                    
+                    if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+                    {
+                        button3.Enabled = false;
+                        DirectoryInfo dI = new DirectoryInfo(textBox1.Text);
+                        foreach (FileInfo f in dI.GetFiles("*.*", SearchOption.AllDirectories))
+                        {
+                            TorrentCreator tc = InitTorrentCreator();
+                            ITorrentFileSource tFS = new TorrentFileSource(f.FullName);
+                            string a = Path.Combine(folderBrowserDialog1.SelectedPath, Path.GetFileNameWithoutExtension(f.FullName) + ".torrent");
+                            tc.CreateAsync(tFS, new FileStream(Path.Combine(folderBrowserDialog1.SelectedPath, Path.GetFileNameWithoutExtension(f.FullName) + ".torrent"), FileMode.Create)).ContinueWith((t) => TorrentCompleted(true));
+                        }
+                        button3.Enabled = true;
+                        if (MessageBox.Show("The torrents have been created successfully.", "Torrents created", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+                        {
+                            progressBar1.Value = 0;
+                        }
+                    }
                 }
+                else if (File.Exists(textBox1.Text)) { MessageBox.Show("The file source must be a directory whilst in batch mode.", "Invalid file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
+                else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
             }
             else
             {
-                if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                if (File.Exists(textBox1.Text) || Directory.Exists(textBox1.Text))
                 {
-                    if (File.Exists(textBox1.Text) || Directory.Exists(textBox1.Text))
+                    saveFileDialog1.FileName = Path.GetFileNameWithoutExtension(textBox1.Text) + ".torrent";
+                    if (saveFileDialog1.ShowDialog() == DialogResult.OK)
                     {
-                        TorrentCreator tc = new TorrentCreator();
-                        tc.Hashed += delegate (object o, TorrentCreatorEventArgs ee)
-                        {
-                            ShowProgress(ee.FileCompletion, ee.OverallCompletion, ee.OverallSize);
-                        };
-                        foreach (string s in this.textBox2.Lines)
-                        {
-                            tc.Announces.Add(new RawTrackerTier(new string[] { s }));
-                        }
-                        tc.Comment = textBox3.Text;
-                        tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
-                        tc.Private = checkBox1.Checked;
-                        tc.CreatedBy = "";
 
-                        ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
                         button3.Enabled = false;
+                        TorrentCreator tc = InitTorrentCreator();
+                        ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
 
-                        tc.CreateAsync(tFS, new FileStream(saveFileDialog1.FileName, FileMode.Create)).ContinueWith((t) => TorrentCompleted());
+                        tc.CreateAsync(tFS, new FileStream(saveFileDialog1.FileName, FileMode.Create)).ContinueWith((t) => TorrentCompleted(false));
                     }
-                    else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
                 }
+                else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
             }
             
         }
@@ -121,29 +128,51 @@ namespace mkT
             }
         }
 
-        delegate void TorrentCompletedDelegate();
-        private void TorrentCompleted()
+        delegate void TorrentCompletedDelegate(bool multi);
+        private void TorrentCompleted(bool multi)
         {
             // check the current thread
             if (button3.InvokeRequired == false)
             {
-                button3.Enabled = true;
-                if (MessageBox.Show("The torrent has been created successfully.", "Torrent created", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+                if (multi == false)
                 {
-                    progressBar1.Value = 0;
+                    button3.Enabled = true;
+                    if (MessageBox.Show("The torrent has been created successfully.", "Torrent created", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+                    {
+                        progressBar1.Value = 0;
+                    }
                 }
             }
             else
             {
                 // show async progress
                 TorrentCompletedDelegate torrentCompleted = new TorrentCompletedDelegate(TorrentCompleted);
-                BeginInvoke(torrentCompleted);
+                BeginInvoke(torrentCompleted, new object[] { multi });
             }
         }
 
         private void checkBox2_CheckedChanged(object sender, EventArgs e)
         {
             button4.Enabled = checkBox2.Checked;
+            button2.Enabled = !checkBox2.Checked;
+        }
+
+        private TorrentCreator InitTorrentCreator()
+        {
+            TorrentCreator tc = new TorrentCreator();
+            tc.Hashed += delegate (object o, TorrentCreatorEventArgs ee)
+            {
+                ShowProgress(ee.FileCompletion, ee.OverallCompletion, ee.OverallSize);
+            };
+            foreach (string s in this.textBox2.Lines)
+            {
+                tc.Announces.Add(new RawTrackerTier(new string[] { s }));
+            }
+            tc.Comment = textBox3.Text;
+            tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
+            tc.Private = checkBox1.Checked;
+            tc.CreatedBy = "";
+            return tc;
         }
     }
 
@@ -153,6 +182,7 @@ namespace mkT
         {
             byte[] buffer = (await Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, itfs, null)).Encode();
             await stream.WriteAsync(buffer, 0, buffer.Length);
+            stream.Close();
         }
     }
 }
