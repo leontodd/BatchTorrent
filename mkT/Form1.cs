@@ -11,6 +11,7 @@ using MonoTorrent;
 using MonoTorrent.Common;
 using MonoTorrent.BEncoding;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace mkT
 {
@@ -39,6 +40,10 @@ namespace mkT
             comboBox1.DisplayMember = "Key";
             comboBox1.ValueMember = "Value";
             comboBox1.SelectedIndex = 0;
+
+            //REMOVE THIS UPON RELEASE
+            textBox1.Text = @"C:\Users\Leon\Downloads\lmy48b_hammerhead.zip";
+
         }
 
         private void button2_Click(object sender, EventArgs e)
@@ -57,34 +62,54 @@ namespace mkT
             }
         }
 
-        private async void button3_Click(object sender, EventArgs e)
+        private void button3_Click(object sender, EventArgs e)
         {
-            if (File.Exists(textBox1.Text) || Directory.Exists(textBox1.Text))
+            SemaphoreSlim sS = new SemaphoreSlim(10);
+            List<Task> tasks = new List<Task>();
+            if (checkBox2.Checked)
             {
-                TorrentCreator tc = new TorrentCreator();
-                tc.Hashed += delegate(object o, TorrentCreatorEventArgs ee)
+                if (folderBrowserDialog1.ShowDialog() == DialogResult.OK)
                 {
-                    ShowProgress(ee.FileCompletion, ee.OverallCompletion, ee.OverallSize);
-                };
-                RawTrackerTiers trackers = new RawTrackerTiers();
-                foreach (string s in this.textBox2.Lines)
-                {
-                    tc.Announces.Add(new RawTrackerTier(new string[] { s }));
-                }
-                tc.Comment = textBox3.Text;
-                tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
-                tc.Private = checkBox1.Checked;
-                tc.CreatedBy = "";
-                if (saveFileDialog1.ShowDialog() == DialogResult.OK)
-                {
-                    ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
-                    button3.Enabled = false;
-                    tc.BeginCreate(tFS, TorrentCompletedCallback, tc);
-                    //BEncodedDictionary t = await Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, tFS, null);
-                    //button3.Enabled = true;
+                    
                 }
             }
-            else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
+            else
+            {
+                if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                {
+                    if (File.Exists(textBox1.Text) || Directory.Exists(textBox1.Text))
+                    {
+                        TorrentCreator tc = new TorrentCreator();
+                        tc.Hashed += delegate (object o, TorrentCreatorEventArgs ee)
+                        {
+                            ShowProgress(ee.FileCompletion, ee.OverallCompletion, ee.OverallSize);
+                        };
+                        foreach (string s in this.textBox2.Lines)
+                        {
+                            tc.Announces.Add(new RawTrackerTier(new string[] { s }));
+                        }
+                        tc.Comment = textBox3.Text;
+                        tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
+                        tc.Private = checkBox1.Checked;
+                        tc.CreatedBy = "";
+
+                        ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
+                        button3.Enabled = false;
+
+                        tc.CreateAsync(tFS);
+                        //button3.Enabled = true;
+
+                        //tasks.Add(Task.Run(async() =>
+                        //    {
+                        //        await sS.WaitAsync();
+                        //        await ProcessTorrent(textBox1.Text, saveFileDialog1.FileName);
+                        //        sS.Release();
+                        //    }));
+                    }
+                    else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
+                }
+            }
+            
         }
 
         delegate void ShowProgressDelegate(double fileCompletion, double overallCompletion, double overallSize);
@@ -132,6 +157,39 @@ namespace mkT
                 TorrentCompletedDelegate torrentCompleted = new TorrentCompletedDelegate(TorrentCompleted);
                 BeginInvoke(torrentCompleted);
             }
+        }
+
+        private void checkBox2_CheckedChanged(object sender, EventArgs e)
+        {
+            button4.Enabled = checkBox2.Checked;
+        }
+
+        async Task ProcessTorrent(string loadpath, string savepath)
+        {
+            bool a = File.Exists(loadpath);
+            bool b = Directory.Exists(loadpath);
+            if (File.Exists(loadpath) || Directory.Exists(loadpath))
+            {
+                
+
+                //if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+                //{
+                //    ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
+                //    button3.Enabled = false;
+                //    tc.BeginCreate(tFS, TorrentCompletedCallback, tc);
+                //    //BEncodedDictionary t = await Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, tFS, null);
+                //    //button3.Enabled = true;
+                //}
+            }
+            else { MessageBox.Show("Please enter a file source.", "No file source specified", MessageBoxButtons.OK, MessageBoxIcon.Stop); }
+        }
+    }
+
+    public static class ExtensionMethods
+    {
+        public static Task CreateAsync(this TorrentCreator tc, ITorrentFileSource itfs)
+        {
+            return Task.Factory.FromAsync(tc.BeginCreate, tc.EndCreate, itfs, null);
         }
     }
 }
