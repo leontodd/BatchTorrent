@@ -17,14 +17,16 @@ namespace mkT
 {
     public partial class Form1 : Form
     {
+        public Dictionary<string, long> comboSource = new Dictionary<string, long>();
         public Form1()
         {
             InitializeComponent();
+            //
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            Dictionary<string, long> comboSource = new Dictionary<string, long>();
+            comboSource.Add("Auto", -1);
             comboSource.Add("16 KiB", 1024 * 16);
             comboSource.Add("32 KiB", 1024 * 32);
             comboSource.Add("64 KiB", 1024 * 64);
@@ -43,6 +45,9 @@ namespace mkT
 
             //REMOVE THIS UPON RELEASE
             textBox1.Text = @"C:\Users\Leon\Desktop\TEST";
+            this.Size = new Size(Form1.ActiveForm.Size.Width, Form1.ActiveForm.Size.Height - 83);
+            groupBox2.Size = new Size(391, 130);
+            groupBox3.Visible = false;
 
         }
 
@@ -78,6 +83,10 @@ namespace mkT
                         {
                             TorrentCreator tc = InitTorrentCreator();
                             ITorrentFileSource tFS = new TorrentFileSource(f.FullName);
+                            if (((KeyValuePair<string, long>)comboBox1.SelectedItem).Value == -1)
+                            {
+                                tc.PieceLength = CalculateOptimumPieceSize(textBox1.Text);
+                            }
                             string a = Path.Combine(folderBrowserDialog1.SelectedPath, Path.GetFileNameWithoutExtension(f.FullName) + ".torrent");
                             tc.CreateAsync(tFS, new FileStream(Path.Combine(folderBrowserDialog1.SelectedPath, Path.GetFileNameWithoutExtension(f.FullName) + ".torrent"), FileMode.Create)).ContinueWith((t) => TorrentCompleted(true));
                         }
@@ -102,7 +111,10 @@ namespace mkT
                         button3.Enabled = false;
                         TorrentCreator tc = InitTorrentCreator();
                         ITorrentFileSource tFS = new TorrentFileSource(textBox1.Text);
-
+                        if (((KeyValuePair<string, long>)comboBox1.SelectedItem).Value == -1)
+                        {
+                            tc.PieceLength = CalculateOptimumPieceSize(textBox1.Text);
+                        }
                         tc.CreateAsync(tFS, new FileStream(saveFileDialog1.FileName, FileMode.Create)).ContinueWith((t) => TorrentCompleted(false));
                     }
                 }
@@ -155,6 +167,10 @@ namespace mkT
         {
             button4.Enabled = checkBox2.Checked;
             button2.Enabled = !checkBox2.Checked;
+            button3.Text = (checkBox2.Checked) ? "Create torrents" : "Create torrent...";
+            Size = (checkBox2.Checked) ? new Size(Size.Width, Size.Height + 58) : new Size(Size.Width, Size.Height - 58);
+            groupBox2.Size = (checkBox2.Checked) ? new Size(groupBox2.Size.Width, groupBox2.Size.Height - 58) : new Size(groupBox2.Size.Width, groupBox2.Size.Height + 58);
+            groupBox3.Visible = checkBox2.Checked;          
         }
 
         private TorrentCreator InitTorrentCreator()
@@ -169,10 +185,44 @@ namespace mkT
                 tc.Announces.Add(new RawTrackerTier(new string[] { s }));
             }
             tc.Comment = textBox3.Text;
-            tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
+            if (((KeyValuePair<string, long>)comboBox1.SelectedItem).Value != -1)
+            {
+                tc.PieceLength = ((KeyValuePair<string, long>)comboBox1.SelectedItem).Value;
+            }
             tc.Private = checkBox1.Checked;
             tc.CreatedBy = "";
             return tc;
+        }
+
+        private long CalculateOptimumPieceSize(string fileSource)
+        {
+            long size = 0;
+            if (Directory.Exists(fileSource))
+            {
+                foreach (FileInfo f in new DirectoryInfo(fileSource).GetFiles("*.*", SearchOption.AllDirectories))
+                {
+                    size += f.Length;
+                }
+            }
+            else
+            {
+                size = new FileInfo(fileSource).Length;
+            }
+            long pieces = size / 1337;
+            long closest = ((KeyValuePair<string, long>)comboBox1.Items[1]).Value;
+            for (int i = 1; i < comboBox1.Items.Count; i++)
+            {
+                if (Math.Abs(((KeyValuePair<string, long>)comboBox1.Items[i]).Value - pieces) < Math.Abs(closest - pieces))
+                {
+                    closest = ((KeyValuePair<string, long>)comboBox1.Items[i]).Value;
+                }
+            }
+            return closest;
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            Environment.Exit(0);
         }
     }
 
